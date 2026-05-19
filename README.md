@@ -1,16 +1,22 @@
-# React + Vite
+# 🎮 GameDex - Frontend Web Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+![GameDex Banner]([INSERTA_AQUI_UNA_URL_O_RUTA_A_UNA_CAPTURA_DE_TU_APP])
 
-Currently, two official plugins are available:
+GameDex es una aplicación web de página única (SPA) desarrollada en React para la gestión y exploración de un catálogo de videojuegos. El proyecto se conecta a una API REST personalizada para ofrecer operaciones CRUD, un sistema de autenticación de identidad simulada y reseñas de usuarios.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Características Principales
 
-## React Compiler
+* **Exploración de Catálogo:** Visualización dinámica de videojuegos con filtrado de detalles técnicos (plataformas, géneros, precios).
+* **Panel de Administración Seguro:** Una ruta protegida (`/admin`) que requiere autenticación mediante variables de entorno para realizar peticiones POST y DELETE al servidor.
+* **Sistema de Reseñas:** Formulario interactivo que inyecta automáticamente el ID del usuario en sesión para calificar títulos.
+* **Gestión de Identidad:** Sistema de registro rápido y persistencia de sesión utilizando el LocalStorage del navegador.
+* **Navegación Instantánea:** Cambio de pantallas sin tiempos de carga gracias a React Router y la memoria centralizada.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tecnologías Utilizadas
 
-## Expanding the ESLint configuration
+* **Frontend Core:** React.js + Vite
+* **Gestión de Estado:** Redux Toolkit (Slices para Catálogo y Usuarios)
+* **Enrutamiento:** React Router DOM
+* **Peticiones HTTP:** Axios
+* **Backend:** Integración con API RESTful construida en FastAPI (Desplegada en Render).
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
