@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import gamedexApi from '../api/gamedexApi';
+import gamedexApi from '../api/GamedexApi';
 
 export const JuegoDetalle = () => {
     const { id } = useParams(); 

@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import juegosReducer from './juegosSlice';
-import userReducer from './userSlice'; // Importamos el nuevo slice
+import userReducer from './userSlice'; // Importamos el reducer de usuario
 
 export const store = configureStore({
     reducer: {

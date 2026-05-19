@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { setUser, logout } from '../store/userSlice';
-import gamedexApi from '../api/gamedexApi';
+import { setUser, logout } from '../Store/userSlice';
+import gamedexApi from '../api/GamedexApi';
 
 export const Navbar = () => {
     const dispatch = useDispatch();

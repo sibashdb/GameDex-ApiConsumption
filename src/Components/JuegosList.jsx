@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import { setJuegos } from '../store/juegosSlice';
-import gamedexApi from '../api/gamedexApi';
+import { setJuegos } from '../Store/juegosSlice';
+import gamedexApi from '../api/GamedexApi';
 
 export const JuegosList = () => {
     // CORRECCIÓN: Renombramos 'lista' a 'juegos' para que coincida con tu JSX abajo

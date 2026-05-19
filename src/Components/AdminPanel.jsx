@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { setJuegos, removeJuego } from '../store/juegosSlice';
-import gamedexApi from '../api/gamedexApi';
+import { setJuegos, removeJuego } from '../Store/juegosSlice';
+import gamedexApi from '../api/GamedexApi';
 
 export const AdminPanel = () => {
     const dispatch = useDispatch();
