@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Navbar } from './components/Navbar';
-import { JuegosList } from './components/JuegosList';
-import { JuegoDetalle } from './components/JuegoDetalle';
-import { AdminPanel } from './components/AdminPanel';
+import { Navbar } from './Components/Navbar';
+import { JuegosList } from './Components/JuegosList';
+import { JuegoDetalle } from './Components/JuegoDetalle';
+import { AdminPanel } from './Components/AdminPanel';
 
 function App() {
   return (
