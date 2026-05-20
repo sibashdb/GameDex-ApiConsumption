@@ -1,55 +1,63 @@
+import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate, Link } from 'react-router-dom';
 import { setUser } from '../Store/userSlice';
 import gamedexApi from '../api/GamedexApi';
+import { useToast } from '../hooks/useToast';
 
 export const Registro = () => {
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
+    const dispatch  = useDispatch();
+    const navigate  = useNavigate();
+    const toast     = useToast();
+    const [cargando, setCargando] = useState(false);
 
     const manejarRegistro = async (e) => {
         e.preventDefault();
-        const formData = new FormData(e.target);
-        const payload = Object.fromEntries(formData.entries());
-
+        setCargando(true);
+        const payload = Object.fromEntries(new FormData(e.target));
         try {
-            const respuesta = await gamedexApi.post('/api/v1/auth/registrar', payload);
-            dispatch(setUser(respuesta.data)); 
-            navigate('/'); // Redirección al catálogo
-        } catch (error) {
-            console.error("Error al registrar:", error);
-            alert("No se pudo registrar. Verifica si el correo o usuario ya existen.");
+            const { data } = await gamedexApi.post('/api/v1/auth/registrar', payload);
+            dispatch(setUser(data));
+            toast.success('¡Cuenta creada con éxito!');
+            navigate('/');
+        } catch (err) {
+            const msg = err.response?.data?.detail;
+            toast.error(typeof msg === 'string' ? msg : 'El correo o usuario ya existe.');
+        } finally {
+            setCargando(false);
         }
     };
 
     return (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '70vh', fontFamily: 'system-ui, sans-serif' }}>
-            <div style={{ backgroundColor: '#130f22', padding: '3rem', borderRadius: '12px', border: '1px solid #261f44', width: '100%', maxWidth: '400px', textAlign: 'center', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
-                <h2 style={{ color: '#6366f1', marginTop: 0, marginBottom: '2rem', fontSize: '2rem' }}>Crear Perfil</h2>
-                
-                <form onSubmit={manejarRegistro} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div style={{ textAlign: 'left' }}>
-                        <label style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '5px', display: 'block' }}>Nombre de Usuario</label>
-                        <input name="username" type="text" required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #3c316a', backgroundColor: '#1c1632', color: 'white', boxSizing: 'border-box' }} />
-                    </div>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '75vh', padding: '2rem' }}>
+            <div className="gd-card" style={{ padding: '2.5rem', width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🕹️</div>
+                <h2 style={{ color: 'var(--accent-indigo)', marginBottom: '0.5rem', fontSize: '1.75rem' }}>Crear perfil</h2>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>Únete a la comunidad GameDex</p>
 
-                    <div style={{ textAlign: 'left' }}>
-                        <label style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '5px', display: 'block' }}>Correo Electrónico</label>
-                        <input name="email" type="email" required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #3c316a', backgroundColor: '#1c1632', color: 'white', boxSizing: 'border-box' }} />
+                <form onSubmit={manejarRegistro} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', textAlign: 'left' }}>
+                    <div className="form-field">
+                        <label className="gd-label">Nombre de usuario</label>
+                        <input name="username" type="text" required className="gd-input" placeholder="GamerPro123" />
                     </div>
-                    
-                    <div style={{ textAlign: 'left' }}>
-                        <label style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '5px', display: 'block' }}>Contraseña</label>
-                        <input name="password" type="password" required style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #3c316a', backgroundColor: '#1c1632', color: 'white', boxSizing: 'border-box' }} />
+                    <div className="form-field">
+                        <label className="gd-label">Correo electrónico</label>
+                        <input name="email" type="email" required className="gd-input" placeholder="tu@correo.com" />
                     </div>
-
-                    <button type="submit" style={{ padding: '12px', backgroundColor: '#6366f1', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', marginTop: '1rem' }}>
-                        Crear Cuenta
+                    <div className="form-field">
+                        <label className="gd-label">Contraseña</label>
+                        <input name="password" type="password" required minLength={6} className="gd-input" placeholder="Mínimo 6 caracteres" />
+                    </div>
+                    <button type="submit" className="gd-btn gd-btn-primary" style={{ width: '100%', padding: '12px', fontSize: '1rem', marginTop: '0.5rem' }} disabled={cargando}>
+                        {cargando ? 'Creando cuenta...' : 'Crear cuenta'}
                     </button>
                 </form>
 
-                <p style={{ color: '#9ca3af', marginTop: '2rem', fontSize: '0.9rem' }}>
-                    ¿Ya tienes cuenta? <Link to="/login" style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 'bold' }}>Inicia sesión aquí</Link>
+                <p style={{ color: 'var(--text-muted)', marginTop: '2rem', fontSize: '0.9rem' }}>
+                    ¿Ya tienes cuenta?{' '}
+                    <Link to="/login" style={{ color: 'var(--accent-indigo)', fontWeight: 700, textDecoration: 'none' }}>
+                        Inicia sesión aquí
+                    </Link>
                 </p>
             </div>
         </div>

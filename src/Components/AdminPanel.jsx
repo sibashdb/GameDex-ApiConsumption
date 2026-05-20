@@ -1,201 +1,222 @@
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { setJuegos, removeJuego } from '../Store/juegosSlice';
+import { setJuegos, addJuego, removeJuego } from '../Store/juegosSlice';
 import gamedexApi from '../api/GamedexApi';
+import { useToast } from '../hooks/useToast';
+
+const FORM_VACIO = { titulo: '', desarrollador: '', precio: 0, clasificacion: '', imagen_url: '', generos: '', plataformas: '' };
 
 export const AdminPanel = () => {
     const dispatch = useDispatch();
-    
-    // Leemos la lista desde Redux
+    const toast    = useToast();
     const { lista: juegos, yaCargados } = useSelector(state => state.juegos);
-    
-    // --- Estados de Autenticación ---
-    const [accesoConcedido, setAccesoConcedido] = useState(false);
-    const [passwordInput, setPasswordInput] = useState('');
-    const [passwordGuardada, setPasswordGuardada] = useState('');
-    const [errorAcceso, setErrorAcceso] = useState('');
 
-    // --- Estados de UI ---
-    const [cargando, setCargando] = useState(false);
-    const [mostrandoFormulario, setMostrandoFormulario] = useState(false);
-
-    // --- Estado del Formulario ---
-    const estadoInicialFormulario = {
-        titulo: '', desarrollador: '', precio: 0, clasificacion: '', imagen_url: '', generos: '', plataformas: ''
-    };
-    const [nuevoJuego, setNuevoJuego] = useState(estadoInicialFormulario);
+    const [acceso, setAcceso]         = useState(false);
+    const [pwdInput, setPwdInput]     = useState('');
+    const [pwdToken, setPwdToken]     = useState('');
+    const [errorPwd, setErrorPwd]     = useState('');
+    const [cargando, setCargando]     = useState(false);
+    const [vistaForm, setVistaForm]   = useState(false);
+    const [eliminando, setEliminando] = useState(null);
+    const [enviando, setEnviando]     = useState(false);
+    const [formulario, setFormulario] = useState(FORM_VACIO);
+    const [busqueda, setBusqueda]     = useState('');
 
     useEffect(() => {
-        if (accesoConcedido && !yaCargados) {
-            cargarInventario();
-        }
-    }, [accesoConcedido, yaCargados]);
+        if (acceso && !yaCargados) cargarInventario();
+    }, [acceso, yaCargados]);
 
     const cargarInventario = async () => {
         setCargando(true);
         try {
-            const respuesta = await gamedexApi.get('/api/v1/juegos');
-            const datosJuegos = respuesta.data.datos;
-            if (datosJuegos && Array.isArray(datosJuegos)) {
-                dispatch(setJuegos(datosJuegos));
-            }
-            setCargando(false);
-        } catch (error) {
-            console.error("Error al cargar inventario:", error);
+            const { data } = await gamedexApi.get('/api/v1/juegos');
+            if (Array.isArray(data.datos)) dispatch(setJuegos(data.datos));
+        } catch {
+            toast.error('No se pudo cargar el inventario.');
+        } finally {
             setCargando(false);
         }
     };
 
-    // --- AQUÍ ESTÁ LA FUNCIÓN QUE FALTABA ---
     const manejarIngreso = (e) => {
         e.preventDefault();
-        setErrorAcceso('');
-        const passwordCorrecta = import.meta.env.VITE_ADMIN_PASSWORD;
-
-        if (passwordInput === passwordCorrecta) {
-            setPasswordGuardada(passwordInput);
-            setAccesoConcedido(true);
+        const correcta = import.meta.env.VITE_ADMIN_PASSWORD;
+        if (pwdInput === correcta) {
+            setPwdToken(pwdInput);
+            setAcceso(true);
         } else {
-            setErrorAcceso('Contraseña incorrecta. Acceso denegado.');
-            setPasswordInput('');
+            setErrorPwd('Contraseña incorrecta. Acceso denegado.');
+            setPwdInput('');
         }
     };
 
-    const eliminarJuego = async (id) => {
-        const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el juego con ID: ${id}?`);
-        if (!confirmar) return;
-
+    const eliminarJuego = async (id, titulo) => {
+        if (!window.confirm(`¿Eliminar "${titulo}"? Esta acción no se puede deshacer.`)) return;
+        setEliminando(id);
         try {
-            await gamedexApi.delete(`/api/v1/admin/juegos/${id}`, {
-                headers: { 'x-token': passwordGuardada }
-            });
+            await gamedexApi.delete(`/api/v1/admin/juegos/${id}`, { headers: { 'x-token': pwdToken } });
             dispatch(removeJuego(id));
-            alert("¡Juego eliminado correctamente!");
-        } catch (error) {
-            console.error("Error al eliminar:", error);
-            alert("Hubo un error al eliminar.");
+            toast.success(`"${titulo}" eliminado correctamente.`);
+        } catch {
+            toast.error('No se pudo eliminar el juego.');
+        } finally {
+            setEliminando(null);
         }
     };
 
-    const manejarCambioFormulario = (e) => {
+    const cambiarCampo = (e) => {
         const { name, value } = e.target;
-        setNuevoJuego({ ...nuevoJuego, [name]: name === 'precio' ? Number(value) : value });
+        setFormulario(prev => ({ ...prev, [name]: name === 'precio' ? Number(value) : value }));
     };
 
-    const enviarNuevoJuego = async (e) => {
+    const enviarJuego = async (e) => {
         e.preventDefault();
+        setEnviando(true);
+        const payload = {
+            ...formulario,
+            generos:     formulario.generos    ? formulario.generos.split(',').map(g => g.trim())    : [],
+            plataformas: formulario.plataformas ? formulario.plataformas.split(',').map(p => p.trim()) : [],
+        };
         try {
-            const payload = {
-                ...nuevoJuego,
-                generos: nuevoJuego.generos ? nuevoJuego.generos.split(',').map(g => g.trim()) : [],
-                plataformas: nuevoJuego.plataformas ? nuevoJuego.plataformas.split(',').map(p => p.trim()) : []
-            };
-            
-            await gamedexApi.post('/api/v1/admin/juegos', payload, {
-                headers: { 'x-token': passwordGuardada }
-            });
-
-            alert("¡Juego registrado con éxito!");
-            setNuevoJuego(estadoInicialFormulario);
-            setMostrandoFormulario(false);
-            cargarInventario(); 
-
-        } catch (error) {
-            console.error("Error al registrar:", error);
-            alert(`Error al guardar: ${error.response?.data?.detail?.[0]?.msg || 'Revisa la consola'}`);
+            const { data } = await gamedexApi.post('/api/v1/admin/juegos', payload, { headers: { 'x-token': pwdToken } });
+            dispatch(addJuego(data.datos || data));
+            toast.success(`"${formulario.titulo}" registrado con éxito.`);
+            setFormulario(FORM_VACIO);
+            setVistaForm(false);
+        } catch (err) {
+            const msg = err.response?.data?.detail;
+            toast.error(typeof msg === 'string' ? msg : msg?.[0]?.msg || 'Error al registrar el juego.');
+        } finally {
+            setEnviando(false);
         }
     };
 
-    // --- Pantalla de Acceso (Gate) ---
-    if (!accesoConcedido) {
-        return (
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10vh', fontFamily: 'system-ui, sans-serif' }}>
-                <form onSubmit={manejarIngreso} style={{ backgroundColor: '#1a1a1a', padding: '2rem', borderRadius: '12px', border: '1px solid #333', textAlign: 'center', color: 'white', width: '300px' }}>
-                    <h2 style={{ marginBottom: '1.5rem' }}>Acceso Restringido</h2>
-                    <p style={{ marginBottom: '1rem', color: '#9ca3af', fontSize: '0.9rem' }}>Ingresa la clave de administrador</p>
-                    <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder="Contraseña..." style={{ padding: '10px', width: '100%', borderRadius: '6px', border: `1px solid ${errorAcceso ? '#ef4444' : '#555'}`, backgroundColor: '#333', color: 'white', marginBottom: '1rem', boxSizing: 'border-box' }} />
-                    {errorAcceso && <p style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0', marginBottom: '1rem', fontWeight: 'bold' }}>{errorAcceso}</p>}
-                    <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', width: '100%' }}>Entrar al Panel</button>
-                </form>
-            </div>
-        );
-    }
+    const juegosFiltrados = busqueda.trim()
+        ? juegos.filter(j => j.titulo?.toLowerCase().includes(busqueda.toLowerCase()) || j.desarrollador?.toLowerCase().includes(busqueda.toLowerCase()))
+        : juegos;
 
-    if (cargando) return <p style={{ textAlign: 'center', padding: '2rem' }}>Cargando panel de control...</p>;
+    // --- Gate de acceso ---
+    if (!acceso) return (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10vh', padding: '1rem' }}>
+            <form onSubmit={manejarIngreso} className="gd-card" style={{ padding: '2.5rem', width: '100%', maxWidth: '360px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔐</div>
+                <h2 style={{ marginBottom: '0.5rem' }}>Acceso Restringido</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.75rem' }}>Ingresa la clave de administrador</p>
+
+                <div className="form-field" style={{ textAlign: 'left', marginBottom: '1rem' }}>
+                    <label className="gd-label">Contraseña de admin</label>
+                    <input
+                        type="password" value={pwdInput} onChange={e => { setPwdInput(e.target.value); setErrorPwd(''); }}
+                        placeholder="••••••••" className="gd-input"
+                        style={{ borderColor: errorPwd ? 'var(--accent-red)' : undefined }}
+                    />
+                    {errorPwd && <p style={{ color: 'var(--accent-red)', fontSize: '0.82rem', marginTop: '6px' }}>{errorPwd}</p>}
+                </div>
+                <button type="submit" className="gd-btn gd-btn-primary" style={{ width: '100%', padding: '11px' }}>
+                    Entrar al panel
+                </button>
+            </form>
+        </div>
+    );
 
     return (
-        <div style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h2>{mostrandoFormulario ? 'Registrar Nuevo Título' : 'Gestión de Catálogo'}</h2>
-                <button 
-                    onClick={() => setMostrandoFormulario(!mostrandoFormulario)}
-                    style={{ padding: '10px 20px', backgroundColor: mostrandoFormulario ? '#6b7280' : '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+        <div style={{ padding: '2rem 0' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                    <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '4px' }}>
+                        Panel de Administración
+                    </h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{juegos.length} títulos en el catálogo</p>
+                </div>
+                <button
+                    onClick={() => setVistaForm(!vistaForm)}
+                    className={`gd-btn ${vistaForm ? 'gd-btn-ghost' : 'gd-btn-success'}`}
                 >
-                    {mostrandoFormulario ? 'Volver a la Tabla' : '+ Registrar Nuevo Juego'}
+                    {vistaForm ? '← Volver a la tabla' : '+ Registrar juego'}
                 </button>
             </div>
 
-            {mostrandoFormulario ? (
-                <form onSubmit={enviarNuevoJuego} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: '500px', backgroundColor: '#1a1a1a', padding: '2rem', borderRadius: '8px', color: 'white' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#e5e7eb' }}>Título del juego *</label>
-                        <input name="titulo" value={nuevoJuego.titulo} onChange={manejarCambioFormulario} placeholder="Ej. Fortnite" required style={{ padding: '10px', borderRadius: '4px', border: '1px solid #555', backgroundColor: '#333', color: 'white' }} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#e5e7eb' }}>Desarrollador *</label>
-                        <input name="desarrollador" value={nuevoJuego.desarrollador} onChange={manejarCambioFormulario} placeholder="Ej. Epic Games" required style={{ padding: '10px', borderRadius: '4px', border: '1px solid #555', backgroundColor: '#333', color: 'white' }} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#e5e7eb' }}>Precio (USD) *</label>
-                        <input name="precio" type="number" value={nuevoJuego.precio} onChange={manejarCambioFormulario} required style={{ padding: '10px', borderRadius: '4px', border: '1px solid #555', backgroundColor: '#333', color: 'white' }} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#e5e7eb' }}>Clasificación</label>
-                        <input name="clasificacion" value={nuevoJuego.clasificacion} onChange={manejarCambioFormulario} placeholder="Ej. E, T, M" style={{ padding: '10px', borderRadius: '4px', border: '1px solid #555', backgroundColor: '#333', color: 'white' }} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#e5e7eb' }}>URL de la portada</label>
-                        <input name="imagen_url" value={nuevoJuego.imagen_url} onChange={manejarCambioFormulario} placeholder="https://..." style={{ padding: '10px', borderRadius: '4px', border: '1px solid #555', backgroundColor: '#333', color: 'white' }} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#e5e7eb' }}>Géneros</label>
-                        <input name="generos" value={nuevoJuego.generos} onChange={manejarCambioFormulario} placeholder="Ej. Acción, Battle Royale" style={{ padding: '10px', borderRadius: '4px', border: '1px solid #555', backgroundColor: '#333', color: 'white' }} />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ marginBottom: '5px', fontWeight: 'bold', fontSize: '0.9rem', color: '#e5e7eb' }}>Plataformas</label>
-                        <input name="plataformas" value={nuevoJuego.plataformas} onChange={manejarCambioFormulario} placeholder="Ej. PC, Xbox, PlayStation" style={{ padding: '10px', borderRadius: '4px', border: '1px solid #555', backgroundColor: '#333', color: 'white' }} />
-                    </div>
-                    <button type="submit" style={{ padding: '12px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginTop: '1rem' }}>
-                        Guardar Juego en Base de Datos
-                    </button>
-                </form>
-            ) : (
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                        <thead>
-                            <tr style={{ backgroundColor: '#333', color: 'white' }}>
-                                <th style={{ padding: '12px', borderBottom: '1px solid #555' }}>ID</th>
-                                <th style={{ padding: '12px', borderBottom: '1px solid #555' }}>Título</th>
-                                <th style={{ padding: '12px', borderBottom: '1px solid #555' }}>Desarrollador</th>
-                                <th style={{ padding: '12px', borderBottom: '1px solid #555', textAlign: 'center' }}>Acción Individual</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {juegos.map((juego) => (
-                                <tr key={juego.id} style={{ borderBottom: '1px solid #ccc' }}>
-                                    <td style={{ padding: '12px' }}>{juego.id}</td>
-                                    <td style={{ padding: '12px', fontWeight: 'bold' }}>{juego.titulo}</td>
-                                    <td style={{ padding: '12px' }}>{juego.desarrollador}</td>
-                                    <td style={{ padding: '12px', textAlign: 'center' }}>
-                                        <button onClick={() => eliminarJuego(juego.id)} style={{ padding: '6px 12px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                            Eliminar
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {cargando ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Cargando inventario...</div>
+            ) : vistaForm ? (
+                /* ---- Formulario de nuevo juego ---- */
+                <div className="gd-card" style={{ padding: '2rem', maxWidth: '560px' }}>
+                    <h3 style={{ marginBottom: '1.5rem', color: 'var(--accent-violet)' }}>Registrar nuevo título</h3>
+                    <form onSubmit={enviarJuego} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                        {[
+                            { name: 'titulo',       label: 'Título *',           placeholder: 'Ej. Fortnite',          type: 'text' },
+                            { name: 'desarrollador',label: 'Desarrollador *',     placeholder: 'Ej. Epic Games',        type: 'text' },
+                            { name: 'clasificacion',label: 'Clasificación',       placeholder: 'E, T, M...',            type: 'text' },
+                            { name: 'imagen_url',   label: 'URL de portada',      placeholder: 'https://...',           type: 'url'  },
+                            { name: 'generos',      label: 'Géneros (separados por coma)', placeholder: 'Acción, RPG', type: 'text' },
+                            { name: 'plataformas',  label: 'Plataformas (separadas por coma)', placeholder: 'PC, Xbox', type: 'text' },
+                        ].map(f => (
+                            <div key={f.name} className="form-field">
+                                <label className="gd-label">{f.label}</label>
+                                <input name={f.name} type={f.type} value={formulario[f.name]} onChange={cambiarCampo} placeholder={f.placeholder} className="gd-input" required={f.name === 'titulo' || f.name === 'desarrollador'} />
+                            </div>
+                        ))}
+                        <div className="form-field">
+                            <label className="gd-label">Precio (MXN) *</label>
+                            <input name="precio" type="number" min="0" step="0.01" value={formulario.precio} onChange={cambiarCampo} className="gd-input" required />
+                        </div>
+                        <button type="submit" className="gd-btn gd-btn-primary" style={{ marginTop: '0.5rem', padding: '12px' }} disabled={enviando}>
+                            {enviando ? 'Guardando...' : 'Guardar en base de datos'}
+                        </button>
+                    </form>
                 </div>
+            ) : (
+                /* ---- Tabla de juegos ---- */
+                <>
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <input
+                            className="gd-input"
+                            style={{ maxWidth: '360px' }}
+                            placeholder="🔍 Buscar en el catálogo..."
+                            value={busqueda}
+                            onChange={e => setBusqueda(e.target.value)}
+                        />
+                    </div>
+                    <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>
+                                    {['ID', 'Título', 'Desarrollador', 'Precio', 'Acción'].map(h => (
+                                        <th key={h} style={{ padding: '12px 16px', textAlign: h === 'Acción' ? 'center' : 'left', fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {juegosFiltrados.map((j, idx) => (
+                                    <tr key={j.id} style={{ borderTop: '1px solid var(--border-subtle)', backgroundColor: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                                        <td style={{ padding: '12px 16px', color: 'var(--text-muted)' }}>{j.id}</td>
+                                        <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>{j.titulo}</td>
+                                        <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{j.desarrollador}</td>
+                                        <td style={{ padding: '12px 16px' }}>
+                                            <span className={`gd-badge ${j.precio === 0 ? 'gd-badge-green' : 'gd-badge-blue'}`}>
+                                                {j.precio === 0 ? 'Free' : `$${j.precio}`}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                                            <button
+                                                onClick={() => eliminarJuego(j.id, j.titulo)}
+                                                className="gd-btn gd-btn-danger"
+                                                style={{ padding: '5px 12px', fontSize: '0.82rem' }}
+                                                disabled={eliminando === j.id}
+                                            >
+                                                {eliminando === j.id ? '...' : 'Eliminar'}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {juegosFiltrados.length === 0 && (
+                            <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Sin resultados.</p>
+                        )}
+                    </div>
+                </>
             )}
         </div>
     );
