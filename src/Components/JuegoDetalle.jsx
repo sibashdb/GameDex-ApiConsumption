@@ -10,6 +10,30 @@ export const JuegoDetalle = () => {
     
     const [juego, setJuego] = useState(null);
 
+    const [resenas, setResenas] = useState([]);
+    const [cargandoResenas, setCargandoResenas] = useState(true);
+
+    // Efecto para descargar las reseñas cuando se abre el juego
+    useEffect(() => {
+        const cargarResenas = async () => {
+            try {
+                const respuesta = await gamedexApi.get(`/api/v1/juegos/${id}/resenas`);
+                
+                // Tu captura muestra que respuesta.data es directamente el arreglo
+                if (Array.isArray(respuesta.data)) {
+                    setResenas(respuesta.data);
+                }
+            } catch (error) {
+                console.error("Error al cargar reseñas:", error);
+                setResenas([]); 
+            } finally {
+                setCargandoResenas(false);
+            }
+        };
+        
+        cargarResenas();
+    }, [id]);
+    
     useEffect(() => {
         const juegoEncontrado = lista.find(j => j.id === Number(id));
         setJuego(juegoEncontrado);
@@ -59,6 +83,63 @@ export const JuegoDetalle = () => {
                         {Array.isArray(juego.plataformas) ? juego.plataformas.join(' • ') : juego.plataformas}
                     </p>
                 </div>
+            </div>
+
+            {/* --- SECCIÓN: AGREGAR A MI COLECCIÓN (SIN FECHA) --- */}
+            <div style={{ marginTop: '2rem', padding: '2rem', backgroundColor: '#1c1632', border: '1px solid #3c316a', borderRadius: '12px' }}>
+                <h2 style={{ color: '#6366f1', marginTop: '0', marginBottom: '1rem' }}>Mi Bóveda Personal</h2>
+                
+                {!isLoggedIn ? (
+                    <p style={{ color: '#f87171', fontWeight: 'bold', margin: 0 }}>✗ Inicia sesión para guardar este juego en tu colección.</p>
+                ) : (
+                    <form onSubmit={async (e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.target);
+                        
+                        const payloadColeccion = {
+                            id_juego: Number(id), // Se envía como número entero (0 en el ejemplo)
+                            estado: formData.get('estado'), // Se envía como texto ("string")
+                            horas_jugadas: Number(formData.get('horas_jugadas')) // Se envía como número entero
+                        };
+
+                        try {
+                            await gamedexApi.post(`/api/v1/usuarios/${id_user}/coleccion`, payloadColeccion);
+                            alert("¡Agregado a tu colección con éxito!");
+                            e.target.reset();                      
+                        } catch (error) {
+                            console.error("Error al guardar en colección:", error);
+                            
+                            // Capturamos la respuesta del backend de tu compañero
+                            const mensajeApi = error.response?.data?.detail;
+                            
+                            // Revisamos si el mensaje es un texto directo o una lista de Pydantic
+                            const textoError = typeof mensajeApi === 'string' 
+                                ? mensajeApi 
+                                : mensajeApi?.[0]?.msg;
+
+                            alert(`Error del servidor: ${textoError || 'Rechazado (Revisa la consola)'}`);
+                        }
+                    }} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', flex: '1', minWidth: '150px' }}>
+                            <label style={{ marginBottom: '5px', fontSize: '0.9rem', color: '#cbd5e1' }}>Estado</label>
+                            <select name="estado" style={{ padding: '10px', borderRadius: '6px', border: '1px solid #3c316a', backgroundColor: '#130f22', color: 'white' }}>
+                                <option value="En progreso">En progreso</option>
+                                <option value="Pendiente">Pendiente</option>
+                                <option value="Terminado">Terminado</option>
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', width: '120px' }}>
+                            <label style={{ marginBottom: '5px', fontSize: '0.9rem', color: '#cbd5e1' }}>Horas</label>
+                            <input name="horas_jugadas" type="number" min="0" defaultValue="0" required style={{ padding: '10px', borderRadius: '6px', border: '1px solid #3c316a', backgroundColor: '#130f22', color: 'white' }} />
+                        </div>
+
+                        <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', height: '41px' }}>
+                            + Guardar
+                        </button>
+                    </form>
+                )}
             </div>
 
             {/* SECCIÓN DE RESEÑAS (Intacta y funcional) */}
@@ -114,6 +195,37 @@ export const JuegoDetalle = () => {
                     </button>
                 </form>
             </div>
+            {/* --- SECCIÓN: LISTA DE RESEÑAS DE LA COMUNIDAD --- */}
+            <div style={{ marginTop: '2rem', padding: '2rem', backgroundColor: '#130f22', border: '1px solid #261f44', borderRadius: '12px' }}>
+                <h2 style={{ color: '#a78bfa', marginTop: '0', marginBottom: '1.5rem' }}>Opiniones de la Comunidad</h2>
+                
+                {cargandoResenas ? (
+                    <p style={{ color: '#cbd5e1' }}>Cargando pergaminos de sabiduría...</p>
+                ) : resenas.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '2rem', backgroundColor: '#1c1632', borderRadius: '8px', border: '1px dashed #3c316a' }}>
+                        <p style={{ color: '#9ca3af', fontStyle: 'italic', margin: 0 }}>Aún no hay reseñas. ¡Sé el primero en dar tu opinión!</p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {resenas.map((resena, index) => (
+                            <div key={index} style={{ backgroundColor: '#1c1632', padding: '1.5rem', borderRadius: '8px', border: '1px solid #3c316a', boxShadow: '0 4px 6px rgba(0,0,0,0.2)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', alignItems: 'center' }}>
+                                    <strong style={{ color: '#6366f1', fontSize: '1.1rem' }}>
+                                        {/* Mostramos el username, o el ID si la API no devuelve el nombre */}
+                                        👾 {resena.username || `Usuario #${resena.id_usuario}`}
+                                    </strong>
+                                    <span style={{ color: '#fbbf24', letterSpacing: '2px', fontSize: '1.1rem' }}>
+                                        {/* Magia para dibujar las estrellas según la puntuación */}
+                                        {'★'.repeat(resena.puntuacion)}{'☆'.repeat(5 - resena.puntuacion)}
+                                    </span>
+                                </div>
+                                <p style={{ color: '#e2e8f0', margin: 0, lineHeight: '1.6' }}>"{resena.comentario}"</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+            
         </div>
     );
 };

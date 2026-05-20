@@ -1,27 +1,36 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+const sesionGuardada = JSON.parse(localStorage.getItem('gamedex_sesion'));
+
 export const userSlice = createSlice({
     name: 'user',
-    initialState: {
+    initialState: sesionGuardada || {
         id_user: null,
         username: '',
         email: '',
         isLoggedIn: false
     },
     reducers: {
-        // Guarda los datos del usuario cuando se registra o inicia sesión
         setUser: (state, action) => {
-            state.id_user = action.payload.id; // Suponiendo que la API regresa "id"
-            state.username = action.payload.username;
-            state.email = action.payload.email;
+            // 1. Magia pura: Revisamos si los datos vienen dentro de "usuario" (como en el Login) o sueltos
+            const perfil = action.payload.usuario || action.payload;
+
+            // 2. Ahora sí, leemos los datos de la variable desempacada
+            state.id_user = perfil.id || perfil.usuario_id || perfil.id_user; 
+            state.username = perfil.username || `Jugador #${state.id_user}`;
+            state.email = perfil.email || '';
             state.isLoggedIn = true;
+
+            // 3. Guardamos la sesión corregida
+            localStorage.setItem('gamedex_sesion', JSON.stringify(state));
         },
-        // Limpia la sesión
         logout: (state) => {
             state.id_user = null;
             state.username = '';
             state.email = '';
             state.isLoggedIn = false;
+            
+            localStorage.removeItem('gamedex_sesion');
         }
     }
 });
